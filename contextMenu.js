@@ -23,8 +23,8 @@
       // Triggers right after any context menu is opened
       ContextMenuOpened: 'context-menu-opened'
     })
-    .directive('contextMenu', ['$rootScope', 'ContextMenuEvents', '$parse', '$q', 'CustomService', '$sce', '$document', '$window',
-      function ($rootScope, ContextMenuEvents, $parse, $q, custom, $sce, $document, $window) {
+    .directive('contextMenu', ['$rootScope', 'ContextMenuEvents', '$parse', '$q', 'CustomService', '$sce', '$document', '$window', '$uibPosition',
+      function ($rootScope, ContextMenuEvents, $parse, $q, custom, $sce, $document, $window, $uibPosition) {
 
         var _contextMenus = [];
         // Contains the element that was clicked to show the context menu
@@ -159,11 +159,14 @@
           var modelValue = params.modelValue;
           var level = params.level;
           var event = params.event;
+          var elementPositon = params.elementPositon;
           var text = params.text;
           var nestedMenu = params.nestedMenu;
           var enabled = params.enabled;
           var orientation = String(params.orientation).toLowerCase();
           var customClass = params.customClass;
+          var ulLeft = elementPositon?elementPositon.left:event.pageX;
+          var ulTop = elementPositon?elementPositon.top+elementPositon.height:event.pageY;
 
           if (enabled) {
             var openNestedMenu = function ($event) {
@@ -175,7 +178,7 @@
                */
               /// adding the original event in the object to use the attributes of the mouse over event in the promises
               var ev = {
-                pageX: orientation === 'left' ? event.pageX - $ul[0].offsetWidth + 1 : event.pageX + $ul[0].offsetWidth - 1,
+                pageX: orientation === 'left' ? ulLeft - $ul[0].offsetWidth + 1 : ulLeft + $ul[0].offsetWidth - 1,
                 pageY: $ul[0].offsetTop + $li[0].offsetTop - 3,
                 // eslint-disable-next-line angular/window-service
                 view: event.view || window,
@@ -376,10 +379,11 @@
           var $promises = params.$promises;
           var level = params.level;
           var event = params.event;
+          var elementPositon = params.elementPositon;
           var leftOriented = String(params.orientation).toLowerCase() === 'left';
 
           $q.all($promises).then(function () {
-            var topCoordinate  = event.pageY;
+            var topCoordinate  = elementPositon?elementPositon.top+elementPositon.height:event.pageY;
             var menuHeight = angular.element($ul[0]).prop('offsetHeight');
             var winHeight = $window.scrollY + event.view.innerHeight;
             /// the 20 pixels in second condition are considering the browser status bar that sometimes overrides the element
@@ -402,7 +406,7 @@
               topCoordinate = winHeight - menuHeight - reduceThresholdY;
             }
 
-            var leftCoordinate = event.pageX;
+            var leftCoordinate = elementPositon?elementPositon.left:event.pageX;
             var menuWidth = angular.element($ul[0]).prop('offsetWidth');
             var winWidth = event.view.innerWidth + window.pageXOffset;
             var padding = 5;
@@ -457,10 +461,22 @@
           $ul.css({
             display: 'block',
             position: 'absolute',
-            left: params.event.pageX + 'px',
-            top: params.event.pageY + 'px',
+            //left: params.event.pageX + 'px',
+            //top: params.event.pageY + 'px',
             'z-index': 10000
           });
+          if(params.elementPositon){
+            $ul.css({
+              left: params.elementPositon.left + 'px',
+              top: params.elementPositon.top + params.elementPositon.height + 'px'
+            });
+          }
+          else{
+            $ul.css({
+              left: params.event.pageX + 'px',
+              top: params.event.pageY + 'px'
+            });
+          }
 
           if(customClass) { $ul.addClass(customClass); }
 
@@ -604,8 +620,12 @@
                     'modelValue' : modelValue,
                     'level' : 0,
                     'customClass' : customClass,
-                    'orientation': orientation
+                    'orientation': orientation,
+                    'element': element
                   };
+                  if($uibPosition && element){
+                    params.elementPositon = $uibPosition.offset(angular.element(element));
+                  }
                   $rootScope.$broadcast(ContextMenuEvents.ContextMenuOpening, { context: _clickedElement });
                   renderContextMenu(params);
                 });
